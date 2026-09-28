@@ -1663,6 +1663,19 @@
         function sheetNum(v) {if (typeof v === 'number') return Number.isFinite(v) ? v : 0; if (v === null || v === undefined || v === '') return 0; let text = String(v).trim().replace(/R\$|%/g, '').replace(/\s/g, ''); if (!text) return 0; const negative = /^[-(]/.test(text) || text.endsWith(')'); text = text.replace(/[()]/g, ''); if (text.includes(',') && text.includes('.')) {if (text.lastIndexOf(',') > text.lastIndexOf('.')) text = text.replace(/\./g, '').replace(',', '.'); else text = text.replace(/,/g, '')} else if (text.includes(',')) {text = text.replace(/\./g, '').replace(',', '.')} const n = Number(text); return Number.isFinite(n) ? (negative ? -Math.abs(n) : n) : 0}
         function sheetRow(obj, headers) {return headers.map(k => sheetScalar(obj[k]))}
         function sheetObject(headers, row) {const obj = {}; headers.forEach((h, i) => obj[h] = row[i] ?? ''); return obj}
+        async function readSheetTable(name) {
+            try {
+                const data = await sheetFetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/${encodeURIComponent(name + '!A:ZZ')}`);
+                const values = Array.isArray(data?.values) ? data.values : [];
+                if (!values.length) return {name, headers: [], rows: []};
+                const headers = values[0].map(v => String(v ?? '').trim());
+                const rows = values.slice(1).map(row => Array.isArray(row) ? row : []);
+                return {name, headers, rows};
+            } catch (e) {
+                if (String(e && e.message || e).includes('Unable to parse range')) return {name, headers: [], rows: []};
+                throw e;
+            }
+        }
         async function writeSheetTable(name, headers, rows) {
             const current = await readSheetTable(name);
             const range = encodeURIComponent(name + '!A1');
@@ -1893,7 +1906,7 @@
         function exportAgenda() {const rows = agendaFiltered(), csv = [['Data', 'Origem', 'Descrição', 'Cartão', 'Valor', 'Status'], ...rows.map(x => [x.date, x.origin, x.description, invoiceCardName(x.cardId), x.amount, x.status])]; download(new Blob(['\ufeff' + csv.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n')], {type: 'text/csv;charset=utf-8'}), `agenda-pagamentos-${today()}.csv`)}
 
     </script>
-    <footer class="app-footer">Versão atualizada em 28/09/2026 às 10:33</footer>
+    <footer class="app-footer">Versão atualizada em 28/09/2026 às 10:51</footer>
 </body>
 
 </html>
