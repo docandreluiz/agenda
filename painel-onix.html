@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Combustível — Onix Joy 2019/2020</title>
+<style>
+  :root{
+    --bg:#0b1220; --card:#111a2e; --card2:#0e1626; --border:#1f2c47;
+    --text:#e8eefc; --muted:#8fa1c4; --accent:#3b82f6; --good:#22c55e;
+    --warn:#eab308; --bad:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;padding:24px}
+  .wrap{max-width:1100px;margin:0 auto}
+  header{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;margin-bottom:24px}
+  h1{font-size:1.5rem;font-weight:700}
+  .sub{color:var(--muted);font-size:.85rem;margin-top:4px}
+  .actions{display:flex;gap:10px;flex-wrap:wrap}
+  button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:.9rem;font-weight:600;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  button:hover{filter:brightness(1.1)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px}
+  .card .label{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em}
+  .card .value{font-size:1.7rem;font-weight:700;margin-top:6px}
+  .card .hint{color:var(--muted);font-size:.75rem;margin-top:4px}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px}
+  .panel h2{font-size:1rem;margin-bottom:12px}
+  .toggle{display:inline-flex;background:var(--card2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px}
+  .toggle button{background:transparent;color:var(--muted);border-radius:0;padding:8px 18px}
+  .toggle button.on{background:var(--accent);color:#fff}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border)}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}
+  .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.75rem;font-weight:600}
+  .p-good{background:rgba(34,197,94,.15);color:var(--good)}
+  .p-warn{background:rgba(234,179,8,.15);color:var(--warn)}
+  .p-bad{background:rgba(239,68,68,.15);color:var(--bad)}
+  .empty{color:var(--muted);text-align:center;padding:40px 16px;font-size:.9rem;line-height:1.7}
+  .empty code{background:var(--card2);padding:2px 6px;border-radius:6px}
+  svg{width:100%;height:auto;display:block}
+  .bar{fill:var(--accent)}
+  .bar.good{fill:var(--good)} .bar.warn{fill:var(--warn)} .bar.bad{fill:var(--bad)}
+  .ref{stroke:var(--muted);stroke-dasharray:5 4;stroke-width:1.5}
+  .axis{fill:var(--muted);font-size:10px}
+  textarea{width:100%;min-height:110px;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:12px;font-family:monospace;font-size:.8rem;margin-top:10px}
+  #drop{border:1.5px dashed var(--border);border-radius:14px;padding:28px;text-align:center;color:var(--muted);margin-bottom:20px;cursor:pointer}
+  #drop.over{border-color:var(--accent);color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>⛽ Painel de Combustível</h1>
+      <div class="sub">Chevrolet Onix Joy 2019/2020 · método do tanque cheio</div>
+    </div>
+    <div class="actions">
+      <button id="btnFile">Importar CSV</button>
+      <button class="ghost" id="btnPaste">Colar dados</button>
+      <input type="file" id="file" accept=".csv,.txt,.tsv" hidden>
+    </div>
+  </header>
+
+  <div id="drop">Arraste o CSV da aba <b>Veiculo_Registos</b> aqui, ou clique em <b>Importar CSV</b>.<br>
+  <small>Planilha → Arquivo → Fazer download → Valores separados por vírgula (.csv)</small></div>
+
+  <div id="pasteBox" class="panel" style="display:none">
+    <h2>Colar conteúdo do CSV</h2>
+    <textarea id="paste" placeholder="id,vehicle_id,type,title,date,km,amount,liters,station,next_date,next_km,detail,..."></textarea>
+    <div style="margin-top:10px"><button id="btnLoad">Carregar</button></div>
+  </div>
+
+  <div id="app" style="display:none">
+    <div class="cards">
+      <div class="card"><div class="label">Consumo médio</div><div class="value" id="kKml">—</div><div class="hint" id="kKmlHint"></div></div>
+      <div class="card"><div class="label">Eficiência vs. referência</div><div class="value" id="kEf">—</div><div class="hint" id="kEfHint"></div></div>
+      <div class="card"><div class="label">Custo por km</div><div class="value" id="kRsKm">—</div><div class="hint">média dos trechos</div></div>
+      <div class="card"><div class="label">Total gasto</div><div class="value" id="kTotal">—</div><div class="hint" id="kTotalHint"></div></div>
+      <div class="card"><div class="label">Km monitorados</div><div class="value" id="kKm">—</div><div class="hint" id="kAb"></div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Consumo por abastecimento (km/L)</h2>
+      <div class="toggle">
+        <button id="tCid" class="on">Cidade</button>
+        <button id="tEst">Estrada</button>
+      </div>
+      <div id="chart"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Histórico de trechos</h2>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Data</th><th>Posto</th><th>Combustível</th><th>Km</th><th>Distância</th>
+          <th>Litros</th><th>km/L</th><th>Avaliação</th><th>R$/L</th><th>R$/km</th><th>Valor</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="empty" class="empty">
+    Nenhum dado carregado ainda.<br>
+    O CSV precisa das colunas <code>date, km, amount, liters, station, title, type, detail</code>.
+  </div>
+</div>
+
+<script>
+// Referência aproximada (Inmetro) Onix Joy 1.0 2019/2020
+const REF = { gasolina:{cidade:13.2, estrada:15.7}, etanol:{cidade:9.0, estrada:10.9} };
+let trechos = [], modo = "cidade";
+
+const $ = id => document.getElementById(id);
+const brl = n => n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const fmt = (n,d=1) => n.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
+
+function num(v){
+  if(v==null) return 0;
+  let s = String(v).trim().replace(/[R$\s]/g,"");
+  if(!s) return 0;
+  if(s.includes(",")) s = s.replace(/\./g,"").replace(",",".");
+  const n = parseFloat(s);
+  return isNaN(n)?0:n;
+}
+function parseDate(s){
+  const t = (s||"").trim();
+  const br = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if(br){ const y = br[3].length===2 ? 2000+ +br[3] : +br[3]; return new Date(y,+br[2]-1,+br[1]).getTime(); }
+  const d = Date.parse(t); return isNaN(d)?0:d;
+}
+function splitCsv(text){
+  const first = text.split("\n")[0]||"";
+  const sep = (first.match(/;/g)||[]).length > (first.match(/,/g)||[]).length ? ";" : text.includes("\t") ? "\t" : ",";
+  const rows=[]; let row=[],cell="",q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){ if(c==='"'&&text[i+1]==='"'){cell+='"';i++;} else if(c==='"') q=false; else cell+=c; }
+    else if(c==='"') q=true;
+    else if(c===sep){ row.push(cell); cell=""; }
+    else if(c==="\n"||c==="\r"){ if(c==="\r"&&text[i+1]==="\n") i++; row.push(cell); rows.push(row); row=[]; cell=""; }
+    else cell+=c;
+  }
+  if(cell||row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r=>r.some(x=>x.trim()));
+}
+function parseCsv(text){
+  const rows = splitCsv(text);
+  if(rows.length<2) return [];
+  const h = rows[0].map(x=>x.trim().toLowerCase());
+  const g = (r,k)=> r[h.indexOf(k)] ?? "";
+  return rows.slice(1).map((r,i)=>({
+    id:g(r,"id")||String(i+1), type:g(r,"type"), title:g(r,"title"), date:g(r,"date"),
+    km:num(g(r,"km")), amount:num(g(r,"amount")), liters:num(g(r,"liters")),
+    station:g(r,"station"), detail:g(r,"detail")
+  }));
+}
+const isAbast = r => r.liters>0 || /fuel|abast|combust|gasol|etanol|alcool|álcool/i.test(r.type+" "+r.title);
+const comb = r => /etanol|alcool|álcool/i.test(r.title+" "+r.detail+" "+r.type) ? "etanol" : "gasolina";
+
+function calcular(regs){
+  const ab = regs.filter(r=>isAbast(r)&&r.km>0&&r.liters>0).sort((a,b)=>a.km-b.km);
+  const out=[];
+  for(let i=1;i<ab.length;i++){
+    const cur=ab[i], prev=ab[i-1], d=cur.km-prev.km;
+    if(d<=0) continue;
+    out.push({...cur, distancia:d, kmL:d/cur.liters, rsKm:cur.amount/d, rsL:cur.amount/cur.liters});
+  }
+  return out;
+}
+function classe(kmL, ref){
+  const r = kmL/ref;
+  return r>=0.95 ? ["good","Bom"] : r>=0.85 ? ["warn","Atenção"] : ["bad","Baixo"];
+}
+
+function render(){
+  if(!trechos.length){ $("app").style.display="none"; $("empty").style.display="block"; return; }
+  $("app").style.display="block"; $("empty").style.display="none";
+
+  const soma = (f)=>trechos.reduce((a,t)=>a+f(t),0);
+  const kmTotal = soma(t=>t.distancia), litTotal = soma(t=>t.liters), gasto = soma(t=>t.amount);
+  const media = kmTotal/litTotal;
+  const refs = trechos.map(t=>REF[comb(t)][modo]);
+  const refMedia = refs.reduce((a,b)=>a+b,0)/refs.length;
+  const ef = media/refMedia*100;
+
+  $("kKml").textContent = fmt(media,2)+" km/L";
+  $("kKmlHint").textContent = "referência "+modo+": "+fmt(refMedia,1)+" km/L";
+  $("kEf").textContent = fmt(ef,0)+"%";
+  $("kEf").style.color = ef>=95?"var(--good)":ef>=85?"var(--warn)":"var(--bad)";
+  $("kEfHint").textContent = ef>=95?"dentro do esperado":ef>=85?"levemente abaixo":"abaixo do esperado";
+  $("kRsKm").textContent = brl(gasto/kmTotal);
+  $("kTotal").textContent = brl(gasto);
+  $("kTotalHint").textContent = fmt(litTotal,1)+" litros";
+  $("kKm").textContent = fmt(kmTotal,0)+" km";
+  $("kAb").textContent = trechos.length+" abastecimentos";
+
+  // gráfico de barras
+  const W=1000,H=260,P=34, n=trechos.length;
+  const max = Math.max(...trechos.map(t=>t.kmL), ...refs)*1.1;
+  const bw = (W-P*2)/n;
+  const y = v => H-P - (v/max)*(H-P*2);
+  let bars="", labels="";
+  trechos.forEach((t,i)=>{
+    const [c] = classe(t.kmL, refs[i]);
+    const x = P + i*bw + bw*0.15, w = bw*0.7;
+    bars += `<rect class="bar ${c}" x="${x}" y="${y(t.kmL)}" width="${w}" height="${H-P-y(t.kmL)}" rx="3"><title>${t.date}: ${fmt(t.kmL,2)} km/L</title></rect>`;
+    if(n<=20) labels += `<text class="axis" x="${x+w/2}" y="${H-P+14}" text-anchor="middle">${t.date.slice(0,5)}</text>`;
+  });
+  const refY = y(refMedia);
+  $("chart").innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}">` + bars + labels +
+    `<line class="ref" x1="${P}" x2="${W-P}" y1="${refY}" y2="${refY}"/>` +
+    `<text class="axis" x="${W-P}" y="${refY-6}" text-anchor="end">ref. ${fmt(refMedia,1)} km/L</text>` +
+    `</svg>`;
+
+  // tabela (mais recente primeiro)
+  $("tbody").innerHTML = [...trechos].reverse().map(t=>{
+    const [c,txt] = classe(t.kmL, REF[comb(t)][modo]);
+    return `<tr>
+      <td>${t.date}</td><td style="text-align:left">${t.station||"—"}</td><td>${comb(t)}</td>
+      <td>${fmt(t.km,0)}</td><td>${fmt(t.distancia,0)}</td><td>${fmt(t.liters,1)}</td>
+      <td><b>${fmt(t.kmL,2)}</b></td><td><span class="pill p-${c}">${txt}</span></td>
+      <td>${brl(t.rsL)}</td><td>${brl(t.rsKm)}</td><td>${brl(t.amount)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function load(text){
+  const regs = parseCsv(text);
+  trechos = calcular(regs);
+  if(!trechos.length){ alert("Não encontrei abastecimentos válidos (preciso de km e litros em pelo menos 2 registros)."); return; }
+  render();
+}
+
+$("btnFile").onclick = ()=> $("file").click();
+$("file").onchange = e => { const f=e.target.files[0]; if(f) f.text().then(load); };
+$("btnPaste").onclick = ()=> { const b=$("pasteBox"); b.style.display = b.style.display==="none"?"block":"none"; };
+$("btnLoad").onclick = ()=> load($("paste").value);
+$("tCid").onclick = ()=>{ modo="cidade"; $("tCid").classList.add("on"); $("tEst").classList.remove("on"); render(); };
+$("tEst").onclick = ()=>{ modo="estrada"; $("tEst").classList.add("on"); $("tCid").classList.remove("on"); render(); };
+const drop=$("drop");
+drop.ondragover = e=>{ e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = ()=> drop.classList.remove("over");
+drop.ondrop = e=>{ e.preventDefault(); drop.classList.remove("over"); const f=e.dataTransfer.files[0]; if(f) f.text().then(load); };
+</script>
+</body>
+</html>
